@@ -12,7 +12,7 @@ pub const TOPIC_BELL: &str = "bell";
 pub const TOPIC_ALARM_EXTERIOR: &str = "alarm/exterior";
 pub const TOPIC_ALARM_INTERIOR: &str = "alarm/interior";
 
-pub const MQTT_SERVER_IP: &str = "0.0.0.0";
+pub const MQTT_SERVER_IP: &str = "192.168.100.2";
 pub const MQTT_SERVER_PORT: u16 = 1883;
 
 pub const TELEGRAM_MSG_BELL_ALERT: &str = "Timbreee 👏👏";
