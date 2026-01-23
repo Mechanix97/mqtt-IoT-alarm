@@ -1,37 +1,41 @@
-use dotenv::dotenv;
-use lazy_static::lazy_static;
 use reqwest::Client;
 use serde_json::json;
-use std::env;
-use std::error::Error;
-use tracing::info;
+use tracing::{error, info};
 
-lazy_static! {
-    static ref BOT_TOKEN: String = {
-        dotenv().ok(); // Carga las variables de entorno desde .env
-        env::var("TELEGRAM_BOT_TOKEN").expect("TELEGRAM_BOT_TOKEN should be defined .env")
-    };
-    static ref CHAT_ID: String = {
-        dotenv().ok(); // Carga las variables de entorno desde .env
-        env::var("TELEGRAM_CHAT_ID").expect("TELEGRAM_CHAT_ID should be defined .env")
-    };
+pub struct TelegramClient {
+    client: Client,
+    bot_token: String,
+    chat_id: String,
 }
 
-pub async fn send_telegram_message(message: &str) -> Result<(), Box<dyn Error>> {
-    info!("Sending Telegram message");
-    let client = Client::new();
-    let url = format!("https://api.telegram.org/bot{}/sendMessage", *BOT_TOKEN);
-    let payload = json!({
-        "chat_id": *CHAT_ID,
-        "text": message,
-    });
+impl TelegramClient {
+    pub fn new(bot_token: String, chat_id: String) -> Self {
+        Self {
+            client: Client::new(),
+            bot_token,
+            chat_id,
+        }
+    }
 
-    let response = client.post(&url).json(&payload).send().await?;
+    pub async fn send(&self, message: &str) {
+        info!("Sending Telegram message");
+        let url = format!("https://api.telegram.org/bot{}/sendMessage", self.bot_token);
+        let payload = json!({
+            "chat_id": self.chat_id,
+            "text": message,
+        });
 
-    if response.status().is_success() {
-        info!("Telegram message sent");
-        Ok(())
-    } else {
-        Err(format!("Error al enviar mensaje: {}", response.status()).into())
+        match self.client.post(&url).json(&payload).send().await {
+            Ok(response) => {
+                if response.status().is_success() {
+                    info!("Telegram message sent");
+                } else {
+                    error!("Failed to send Telegram message: {}", response.status());
+                }
+            }
+            Err(e) => {
+                error!("Telegram request error: {}", e);
+            }
+        }
     }
 }
