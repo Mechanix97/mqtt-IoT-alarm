@@ -57,7 +57,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     TOPIC_ALARM_STATUS => match parse_on_off(&p.payload) {
                         true => alarm.arm().await?,
                         false => {
-                            alarm.desactivate().await?;
+                            alarm.deactivate().await?;
                         }
                     },
                     TOPIC_FRONT_DOOR if alarm.is_armed() => {
@@ -77,7 +77,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                         }
                     }
                     TOPIC_MOVEMENT_SENSOR_1 if alarm.is_armed() => {
-                        info!("Momvement sector 1 {:?}", p.payload);
+                        info!("Movement sector 1 {:?}", p.payload);
                         if parse_on_off(&p.payload) {
                             send_telegram_message(TELEGRAM_MSG_INTRUDER_ALERT).await?;
                             send_telegram_message(TELEGRAM_MSG_MOVEMENT_1_ALERT).await?;
@@ -85,7 +85,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                         }
                     }
                     TOPIC_MOVEMENT_SENSOR_2 if alarm.is_armed() => {
-                        info!("Momvement sector 2 {:?}", p.payload);
+                        info!("Movement sector 2 {:?}", p.payload);
                         if parse_on_off(&p.payload) {
                             send_telegram_message(TELEGRAM_MSG_INTRUDER_ALERT).await?;
                             send_telegram_message(TELEGRAM_MSG_MOVEMENT_2_ALERT).await?;

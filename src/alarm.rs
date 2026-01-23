@@ -97,7 +97,7 @@ impl<'a> Alarm<'a> {
         Ok(())
     }
 
-    pub async fn desactivate(&mut self) -> Result<(), Box<dyn Error>> {
+    pub async fn deactivate(&mut self) -> Result<(), Box<dyn Error>> {
         self.publish(TOPIC_ALARM_EXTERIOR, "OFF").await?;
         self.publish(TOPIC_ALARM_INTERIOR, "OFF").await?;
         self.disarm().await?;
