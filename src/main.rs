@@ -93,7 +93,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                         }
                     }
                     TOPIC_MOVEMENT_SENSOR_3 if alarm.is_armed() => {
-                        info!("Momvement sector 3 {:?}", p.payload);
+                        info!("Movement sector 3 {:?}", p.payload);
                         if parse_on_off(&p.payload) {
                             send_telegram_message(TELEGRAM_MSG_INTRUDER_ALERT).await?;
                             send_telegram_message(TELEGRAM_MSG_MOVEMENT_3_ALERT).await?;
