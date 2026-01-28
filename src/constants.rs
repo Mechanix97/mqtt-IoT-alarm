@@ -23,6 +23,7 @@ pub const TELEGRAM_MSG_MOVEMENT_1_ALERT: &str = "Movimiento detectado 🏃🏾�
 pub const TELEGRAM_MSG_MOVEMENT_2_ALERT: &str = "Movimiento detectado 🏃🏾‍♂️ Sector 2";
 pub const TELEGRAM_MSG_MOVEMENT_3_ALERT: &str = "Movimiento detectado 🏃🏾‍♂️ Sector 3";
 
+// Duration in seconds
 pub const ALARM_ACTIVE_DURATION: u64 = 60;
 pub const ARM_DELAY: u64 = 10;
 
