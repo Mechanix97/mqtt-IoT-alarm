@@ -13,6 +13,7 @@ use crate::telegram::TelegramClient;
 #[derive(Clone)]
 pub enum AlarmCommand {
     Arm,
+    ConfirmArm,
     Deactivate,
     AutoDeactivate,
     SensorTriggered(SensorType),
@@ -29,11 +30,13 @@ pub enum SensorType {
 
 #[derive(Clone, Debug)]
 pub struct AlarmStatus {
+    pub arming: bool,
     pub armed: bool,
     pub activated: bool,
 }
 
 pub struct AlarmActor {
+    arming: bool,
     armed: bool,
     activated: bool,
     mqtt_client: AsyncClient,
@@ -44,6 +47,7 @@ pub struct AlarmActor {
 impl AlarmActor {
     pub fn new(mqtt_client: AsyncClient, telegram: Arc<TelegramClient>) -> Self {
         Self {
+            arming: false,
             armed: false,
             activated: false,
             mqtt_client,
@@ -66,14 +70,33 @@ impl AlarmActor {
         self.telegram.send(message).await;
     }
 
-    async fn arm(&mut self) {
-        if !self.armed {
-            self.publish(TOPIC_ALARM_INTERIOR, "ON").await;
-            tokio::time::sleep(Duration::from_millis(100)).await;
-            self.publish(TOPIC_ALARM_INTERIOR, "OFF").await;
+    async fn arm(&mut self, handle: &GenServerHandle<Self>) {
+        if self.armed || self.arming {
+            return;
         }
+        self.arming = true;
+        info!("Alarm arming (delay: {} seconds)", ARM_DELAY);
+        self.publish(TOPIC_ALARM_INTERIOR, "ON").await;
+        tokio::time::sleep(Duration::from_millis(100)).await;
+        self.publish(TOPIC_ALARM_INTERIOR, "OFF").await;
+
+        send_after(
+            Duration::from_secs(ARM_DELAY),
+            handle.clone(),
+            AlarmCommand::ConfirmArm,
+        );
+    }
+
+    async fn confirm_arm(&mut self) {
+        if !self.arming {
+            return;
+        }
+        self.arming = false;
         self.armed = true;
         info!("Alarm armed");
+        self.publish(TOPIC_ALARM_INTERIOR, "ON").await;
+        tokio::time::sleep(Duration::from_millis(100)).await;
+        self.publish(TOPIC_ALARM_INTERIOR, "OFF").await;
     }
 
     async fn activate(&mut self, handle: &GenServerHandle<Self>) {
@@ -96,11 +119,12 @@ impl AlarmActor {
     async fn deactivate(&mut self) {
         self.publish(TOPIC_ALARM_EXTERIOR, "OFF").await;
         self.publish(TOPIC_ALARM_INTERIOR, "OFF").await;
-        if self.armed && !self.activated {
+        if (self.armed || self.arming) && !self.activated {
             self.publish(TOPIC_ALARM_INTERIOR, "ON").await;
             tokio::time::sleep(Duration::from_millis(100)).await;
             self.publish(TOPIC_ALARM_INTERIOR, "OFF").await;
         }
+        self.arming = false;
         self.armed = false;
         self.activated = false;
         info!("Alarm deactivated");
@@ -111,6 +135,7 @@ impl AlarmActor {
             info!("Alarm auto-deactivated after {} seconds", ALARM_ACTIVE_DURATION);
             self.publish(TOPIC_ALARM_EXTERIOR, "OFF").await;
             self.publish(TOPIC_ALARM_INTERIOR, "OFF").await;
+            self.arming = false;
             self.armed = false;
             self.activated = false;
         }
@@ -148,6 +173,7 @@ impl GenServer for AlarmActor {
         _handle: &GenServerHandle<Self>,
     ) -> CallResponse<Self> {
         CallResponse::Reply(AlarmStatus {
+            arming: self.arming,
             armed: self.armed,
             activated: self.activated,
         })
@@ -160,7 +186,10 @@ impl GenServer for AlarmActor {
     ) -> CastResponse {
         match message {
             AlarmCommand::Arm => {
-                self.arm().await;
+                self.arm(handle).await;
+            }
+            AlarmCommand::ConfirmArm => {
+                self.confirm_arm().await;
             }
             AlarmCommand::Deactivate => {
                 self.deactivate().await;

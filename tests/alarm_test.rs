@@ -42,7 +42,17 @@ async fn test_arm() {
     sleep(Duration::from_millis(200)).await;
 
     let status = get_status(&mut handle).await;
-    assert!(status.armed, "Should be armed after Arm command");
+    assert!(status.arming, "Should be arming during delay");
+    assert!(!status.armed, "Should not be armed yet during delay");
+    assert!(!status.activated, "Should not be activated");
+
+    // Complete the arming by sending ConfirmArm (simulating what send_after does)
+    handle.cast(AlarmCommand::ConfirmArm).await.unwrap();
+    sleep(Duration::from_millis(200)).await;
+
+    let status = get_status(&mut handle).await;
+    assert!(!status.arming, "Should not be arming after confirmation");
+    assert!(status.armed, "Should be armed after ConfirmArm");
     assert!(!status.activated, "Should not be activated");
 }
 
@@ -54,11 +64,14 @@ async fn test_deactivate_after_arm() {
 
     handle.cast(AlarmCommand::Arm).await.unwrap();
     sleep(Duration::from_millis(200)).await;
+    handle.cast(AlarmCommand::ConfirmArm).await.unwrap();
+    sleep(Duration::from_millis(200)).await;
 
     handle.cast(AlarmCommand::Deactivate).await.unwrap();
     sleep(Duration::from_millis(50)).await;
 
     let status = get_status(&mut handle).await;
+    assert!(!status.arming, "Should not be arming after Deactivate");
     assert!(!status.armed, "Should be disarmed after Deactivate");
     assert!(!status.activated, "Should not be activated");
 }
@@ -88,6 +101,8 @@ async fn test_sensor_when_armed() {
 
     handle.cast(AlarmCommand::Arm).await.unwrap();
     sleep(Duration::from_millis(200)).await;
+    handle.cast(AlarmCommand::ConfirmArm).await.unwrap();
+    sleep(Duration::from_millis(200)).await;
 
     handle
         .cast(AlarmCommand::SensorTriggered(SensorType::FrontDoor))
@@ -107,6 +122,8 @@ async fn test_auto_deactivate() {
     sleep(Duration::from_millis(50)).await;
 
     handle.cast(AlarmCommand::Arm).await.unwrap();
+    sleep(Duration::from_millis(200)).await;
+    handle.cast(AlarmCommand::ConfirmArm).await.unwrap();
     sleep(Duration::from_millis(200)).await;
 
     handle
@@ -131,6 +148,8 @@ async fn test_multiple_sensors_single_activation() {
     sleep(Duration::from_millis(50)).await;
 
     handle.cast(AlarmCommand::Arm).await.unwrap();
+    sleep(Duration::from_millis(200)).await;
+    handle.cast(AlarmCommand::ConfirmArm).await.unwrap();
     sleep(Duration::from_millis(200)).await;
 
     // First sensor triggers activation
@@ -158,6 +177,61 @@ async fn test_multiple_sensors_single_activation() {
     let status = get_status(&mut handle).await;
     assert!(!status.armed);
     assert!(!status.activated);
+}
+
+#[tokio::test]
+async fn test_deactivate_during_arming_delay() {
+    let (client, telegram) = setup();
+    let mut handle = AlarmActor::new(client, telegram).start();
+    sleep(Duration::from_millis(50)).await;
+
+    handle.cast(AlarmCommand::Arm).await.unwrap();
+    sleep(Duration::from_millis(200)).await;
+
+    let status = get_status(&mut handle).await;
+    assert!(status.arming, "Should be arming");
+    assert!(!status.armed, "Should not be armed yet");
+
+    // Deactivate during arming delay should cancel arming
+    handle.cast(AlarmCommand::Deactivate).await.unwrap();
+    sleep(Duration::from_millis(50)).await;
+
+    let status = get_status(&mut handle).await;
+    assert!(!status.arming, "Should not be arming after deactivate");
+    assert!(!status.armed, "Should not be armed after deactivate");
+
+    // ConfirmArm should not arm after deactivate
+    handle.cast(AlarmCommand::ConfirmArm).await.unwrap();
+    sleep(Duration::from_millis(50)).await;
+
+    let status = get_status(&mut handle).await;
+    assert!(!status.arming, "Should still not be arming");
+    assert!(!status.armed, "Should still not be armed");
+}
+
+#[tokio::test]
+async fn test_sensor_during_arming_delay() {
+    let (client, telegram) = setup();
+    let mut handle = AlarmActor::new(client, telegram).start();
+    sleep(Duration::from_millis(50)).await;
+
+    handle.cast(AlarmCommand::Arm).await.unwrap();
+    sleep(Duration::from_millis(200)).await;
+
+    let status = get_status(&mut handle).await;
+    assert!(status.arming, "Should be arming");
+
+    // Sensor triggered during arming delay should not activate
+    handle
+        .cast(AlarmCommand::SensorTriggered(SensorType::FrontDoor))
+        .await
+        .unwrap();
+    sleep(Duration::from_millis(50)).await;
+
+    let status = get_status(&mut handle).await;
+    assert!(status.arming, "Should still be arming");
+    assert!(!status.armed, "Should not be armed yet");
+    assert!(!status.activated, "Should not be activated during arming delay");
 }
 
 #[test]
