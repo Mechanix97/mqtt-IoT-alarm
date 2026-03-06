@@ -172,6 +172,8 @@ impl GenServer for AlarmActor {
                 if self.armed {
                     self.send_telegram(TELEGRAM_MSG_INTRUDER_ALERT).await;
                     self.send_telegram(Self::sensor_messages(&sensor)).await;
+                    self.telegram.send_photo(CAM0_SNAPSHOT_PATH).await;
+                    self.telegram.send_photo(CAM1_SNAPSHOT_PATH).await;
                     self.activate(handle).await;
                 }
             }

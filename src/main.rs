@@ -14,13 +14,21 @@ use tokio::time::Duration;
 use tracing::{error, info};
 
 async fn subscribe_all(client: &AsyncClient) -> Result<(), rumqttc::ClientError> {
-    client.subscribe(TOPIC_ALARM_STATUS, QoS::AtMostOnce).await?;
+    client
+        .subscribe(TOPIC_ALARM_STATUS, QoS::AtMostOnce)
+        .await?;
     client.subscribe(TOPIC_BELL, QoS::AtMostOnce).await?;
     client.subscribe(TOPIC_FRONT_DOOR, QoS::AtMostOnce).await?;
     client.subscribe(TOPIC_BACK_DOOR, QoS::AtMostOnce).await?;
-    client.subscribe(TOPIC_MOVEMENT_SENSOR_1, QoS::AtMostOnce).await?;
-    client.subscribe(TOPIC_MOVEMENT_SENSOR_2, QoS::AtMostOnce).await?;
-    client.subscribe(TOPIC_MOVEMENT_SENSOR_3, QoS::AtMostOnce).await?;
+    client
+        .subscribe(TOPIC_MOVEMENT_SENSOR_1, QoS::AtMostOnce)
+        .await?;
+    client
+        .subscribe(TOPIC_MOVEMENT_SENSOR_2, QoS::AtMostOnce)
+        .await?;
+    client
+        .subscribe(TOPIC_MOVEMENT_SENSOR_3, QoS::AtMostOnce)
+        .await?;
     Ok(())
 }
 
@@ -65,6 +73,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                             let tg = telegram.clone();
                             tokio::spawn(async move {
                                 tg.send(TELEGRAM_MSG_BELL_ALERT).await;
+                                tg.send_photo(CAM0_SNAPSHOT_PATH).await;
                             });
                         }
                         TOPIC_ALARM_STATUS => match parse_on_off(&p.payload) {
@@ -107,11 +116,13 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 }
             }
             Err(e) => {
-                error!("MQTT connection error: {}. Reconnecting in {:?}", e, backoff);
+                error!(
+                    "MQTT connection error: {}. Reconnecting in {:?}",
+                    e, backoff
+                );
                 tokio::time::sleep(backoff).await;
                 backoff = (backoff * 2).min(Duration::from_secs(60));
             }
         }
     }
 }
-
