@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use reqwest::Client;
 use serde_json::json;
 use tracing::{error, info};
@@ -11,7 +13,11 @@ pub struct TelegramClient {
 impl TelegramClient {
     pub fn new(bot_token: String, chat_id: String) -> Self {
         Self {
-            client: Client::new(),
+            client: Client::builder()
+                .connect_timeout(Duration::from_secs(10))
+                .timeout(Duration::from_secs(30))
+                .build()
+                .expect("Failed to build HTTP client"),
             bot_token,
             chat_id,
         }
