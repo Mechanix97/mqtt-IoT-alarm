@@ -58,7 +58,11 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 Event::Incoming(Packet::Publish(p)) => match p.topic.as_str() {
                     TOPIC_BELL => {
                         info!("Bell event");
-                        telegram.send(TELEGRAM_MSG_BELL_ALERT).await;
+                        let tg = telegram.clone();
+                        tokio::spawn(async move {
+                            tg.send(TELEGRAM_MSG_BELL_ALERT).await;
+                            tg.send_photo(CAM0_SNAPSHOT_PATH).await;
+                        });
                     }
                     TOPIC_ALARM_STATUS => match parse_on_off(&p.payload) {
                         true => alarm_handle.cast(AlarmCommand::Arm).await?,
